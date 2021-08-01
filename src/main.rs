@@ -37,7 +37,7 @@ impl SupportTicket {
 }
 
 trait TicketOrdering {
-    fn create_ordering(&self, list: Vec<SupportTicket>) -> Vec<SupportTicket>;
+    fn create_ordering(&self, list: &mut Vec<SupportTicket>);
 }
 
 struct FIFOOrderingStrategy();
@@ -45,22 +45,18 @@ struct FILOOrderingStrategy();
 struct RandomOrderingStrategy();
 
 impl TicketOrdering for FIFOOrderingStrategy {
-    fn create_ordering(&self, list: Vec<SupportTicket>) -> Vec<SupportTicket> {
-        list
-    }
+    fn create_ordering(&self, _list: &mut Vec<SupportTicket>) {}
 }
 
 impl TicketOrdering for FILOOrderingStrategy {
-    fn create_ordering(&self, mut list: Vec<SupportTicket>) -> Vec<SupportTicket> {
+    fn create_ordering(&self, list: &mut Vec<SupportTicket>) {
         list.reverse();
-        list
     }
 }
 
 impl TicketOrdering for RandomOrderingStrategy {
-    fn create_ordering(&self, mut list: Vec<SupportTicket>) -> Vec<SupportTicket> {
+    fn create_ordering(&self, list: &mut Vec<SupportTicket>) {
         list.shuffle(&mut thread_rng());
-        list
     }
 }
 
@@ -81,14 +77,15 @@ impl<T: TicketOrdering> CustomerSupport<T> {
         self.tickets.push(SupportTicket::new(customer, issue));
     }
 
-    fn process_tickets(&self) {
-        let ticket_list = self.processing_strategy.create_ordering(self.tickets.clone());
+    fn process_tickets(&mut self) {
+	// let ticket_list = &mut self.tickets;
+	self.processing_strategy.create_ordering(&mut self.tickets);
         if self.tickets.len() == 0 {
             println!("There are no tickets to process. Well done!");
             return;
         }
 
-        for ticket in ticket_list {
+        for ticket in &self.tickets {
             self.process_ticket(&ticket);
         }
     }
@@ -104,7 +101,7 @@ impl<T: TicketOrdering> CustomerSupport<T> {
 
 fn main() {
     // create the application
-    let mut app = CustomerSupport::new(FIFOOrderingStrategy());
+    let mut app = CustomerSupport::new(RandomOrderingStrategy());
 
     // register a few tickets
     app.create_ticket("John Smith", "My computer makes strange sounds!");
