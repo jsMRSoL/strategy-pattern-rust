@@ -1,81 +1,110 @@
+#![allow(dead_code)]
 mod random;
 
-use random::Random;
-use rand::thread_rng;
 use rand::seq::SliceRandom;
+use rand::thread_rng;
+use random::Random;
 
 fn generate_id(length: u8) -> String {
     Random::rand_alpha(length)
 }
 
+#[derive(Debug)]
 struct SupportTicket {
     id: String,
     customer: String,
     issue: String,
 }
 
-impl SupportTicket {
-    fn new(customer: &str, issue: &str) -> Self {
-	Self {
-	    id: generate_id(8),
-	    customer: customer.to_string(),
-	    issue: issue.to_string(),
-	}
+impl Clone for SupportTicket {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            customer: self.customer.clone(),
+            issue: self.issue.clone(),
+        }
     }
 }
 
-struct CustomerSupport {
-    tickets: Vec<SupportTicket>,
-    processing_strategy: String,
+impl SupportTicket {
+    fn new(customer: &str, issue: &str) -> Self {
+        Self {
+            id: generate_id(8),
+            customer: customer.to_string(),
+            issue: issue.to_string(),
+        }
+    }
 }
 
-impl CustomerSupport {
-    fn new(processing_strategy: &str) -> Self {
-	Self {
-	    tickets: Vec::new(),
-	    processing_strategy: processing_strategy.to_string(),
-	}
+trait TicketOrdering {
+    fn create_ordering(&self, list: Vec<SupportTicket>) -> Vec<SupportTicket>;
+}
+
+struct FIFOOrderingStrategy();
+struct FILOOrderingStrategy();
+struct RandomOrderingStrategy();
+
+impl TicketOrdering for FIFOOrderingStrategy {
+    fn create_ordering(&self, list: Vec<SupportTicket>) -> Vec<SupportTicket> {
+        list
+    }
+}
+
+impl TicketOrdering for FILOOrderingStrategy {
+    fn create_ordering(&self, mut list: Vec<SupportTicket>) -> Vec<SupportTicket> {
+        list.reverse();
+        list
+    }
+}
+
+impl TicketOrdering for RandomOrderingStrategy {
+    fn create_ordering(&self, mut list: Vec<SupportTicket>) -> Vec<SupportTicket> {
+        list.shuffle(&mut thread_rng());
+        list
+    }
+}
+
+struct CustomerSupport<T> {
+    tickets: Vec<SupportTicket>,
+    processing_strategy: T,
+}
+
+impl<T: TicketOrdering> CustomerSupport<T> {
+    fn new(processing_strategy: T) -> Self {
+        Self {
+            tickets: Vec::new(),
+            processing_strategy,
+        }
     }
 
     fn create_ticket(&mut self, customer: &str, issue: &str) {
-	self.tickets.push(SupportTicket::new(customer, issue));
+        self.tickets.push(SupportTicket::new(customer, issue));
     }
 
-    fn process_tickets(&mut self) {
-	if self.tickets.len() == 0 {
-	    println!("There are no tickets to process. Well done!");
-	    return;
-	}
+    fn process_tickets(&self) {
+        let ticket_list = self.processing_strategy.create_ordering(self.tickets.clone());
+        if self.tickets.len() == 0 {
+            println!("There are no tickets to process. Well done!");
+            return;
+        }
 
-	if self.processing_strategy == "fifo" {
-	    for ticket in &self.tickets {
-		self.process_ticket(ticket);
-	    }
-	} else if &self.processing_strategy == "filo" {
-	    self.tickets.reverse();
-	    for ticket in &self.tickets {
-		self.process_ticket(ticket);
-	    }
-	} else {
-	    self.tickets.shuffle(&mut thread_rng());
-	    for ticket in &self.tickets {
-		self.process_ticket(ticket);
-	    }
-	}
+        for ticket in ticket_list {
+            self.process_ticket(&ticket);
+        }
     }
 
     fn process_ticket(&self, ticket: &SupportTicket) {
-	println!("========================================");
-	println!("Processing ticket id: {}", ticket.id);
-	println!("Customer: {}", ticket.customer);
-	println!("Issue: {}", ticket.issue);
-	println!("========================================");
+        println!("========================================");
+        println!("Processing ticket id: {}", ticket.id);
+        println!("Customer: {}", ticket.customer);
+        println!("Issue: {}", ticket.issue);
+        println!("========================================");
     }
 }
 
 fn main() {
     // create the application
-    let mut app = CustomerSupport::new("filo");
+    let mut app = CustomerSupport::new(FIFOOrderingStrategy());
 
     // register a few tickets
     app.create_ticket("John Smith", "My computer makes strange sounds!");
@@ -85,4 +114,3 @@ fn main() {
     // process the tickets
     app.process_tickets();
 }
-
